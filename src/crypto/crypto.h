@@ -55,6 +55,8 @@
 #include <type_traits>
 #include <vector>
 
+#include "fmt/format.h"
+#include "common/pod-class.h"
 #include "common/util.h"
 #include "generic-ops.h"
 #include "hash.h"
@@ -287,7 +289,7 @@ inline bool check_signature(const hash &prefix_hash, const public_key &pub, cons
 	return crypto_ops::check_signature(prefix_hash, pub, sig);
 }
 
-/* Generation and checking of a tx proof; given a tx pubkey R, the recipient's view pubkey A, and the key 
+/* Generation and checking of a tx proof; given a tx pubkey R, the recipient's view pubkey A, and the key
    * derivation D, the signature proves the knowledge of the tx secret key r such that R=r*G and D=r*A
    * When the recipient's address is a subaddress, the tx pubkey R is defined as R=r*B where B is the recipient's spend pubkey
    */
@@ -368,6 +370,19 @@ inline std::ostream &operator<<(std::ostream &o, const crypto::signature &v)
 
 const static crypto::public_key null_pkey = boost::value_initialized<crypto::public_key>();
 const static crypto::secret_key null_skey = boost::value_initialized<crypto::secret_key>();
+}
+
+namespace fmt
+{
+template <>
+struct formatter<crypto::public_key> : formatter<string_view>
+{
+	template <typename FormatContext>
+	auto format(const crypto::public_key &pk, FormatContext &ctx)  -> decltype(ctx.out())
+	{
+		return formatter<string_view>::format(epee::string_tools::pod_to_hex(pk), ctx);
+	}
+};
 }
 
 CRYPTO_MAKE_HASHABLE(public_key)
