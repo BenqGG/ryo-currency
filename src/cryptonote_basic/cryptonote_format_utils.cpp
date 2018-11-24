@@ -47,6 +47,9 @@
 #include "include_base_utils.h"
 using namespace epee;
 
+#define GULPS_CAT_MAJOR "formt_utils"
+#include "common/gulps.hpp"
+
 #include "crypto/cn_slow_hash.hpp"
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
@@ -83,7 +86,7 @@ static const uint64_t valid_decomposed_outputs[] = {
 	(uint64_t)100000000000, (uint64_t)200000000000, (uint64_t)300000000000, (uint64_t)400000000000, (uint64_t)500000000000, (uint64_t)600000000000, (uint64_t)700000000000, (uint64_t)800000000000, (uint64_t)900000000000,
 	(uint64_t)1000000000000, (uint64_t)2000000000000, (uint64_t)3000000000000, (uint64_t)4000000000000, (uint64_t)5000000000000, (uint64_t)6000000000000, (uint64_t)7000000000000, (uint64_t)8000000000000, (uint64_t)9000000000000, // 1 kiloRyo
 	(uint64_t)10000000000000, (uint64_t)20000000000000, (uint64_t)30000000000000, (uint64_t)40000000000000, (uint64_t)50000000000000, (uint64_t)60000000000000, (uint64_t)70000000000000, (uint64_t)80000000000000, (uint64_t)90000000000000,
-	(uint64_t)100000000000000, (uint64_t)200000000000000, (uint64_t)300000000000000, (uint64_t)400000000000000, (uint64_t)500000000000000, (uint64_t)600000000000000, (uint64_t)700000000000000, (uint64_t)800000000000000, (uint64_t)900000000000000, 
+	(uint64_t)100000000000000, (uint64_t)200000000000000, (uint64_t)300000000000000, (uint64_t)400000000000000, (uint64_t)500000000000000, (uint64_t)600000000000000, (uint64_t)700000000000000, (uint64_t)800000000000000, (uint64_t)900000000000000,
 	(uint64_t)1000000000000000, (uint64_t)2000000000000000, (uint64_t)3000000000000000, (uint64_t)4000000000000000, (uint64_t)5000000000000000, (uint64_t)6000000000000000, (uint64_t)7000000000000000, (uint64_t)8000000000000000, (uint64_t)9000000000000000, // 1 megaRyo
 	(uint64_t)10000000000000000, (uint64_t)20000000000000000, (uint64_t)30000000000000000, (uint64_t)40000000000000000, (uint64_t)50000000000000000, (uint64_t)60000000000000000, (uint64_t)70000000000000000, (uint64_t)80000000000000000, (uint64_t)90000000000000000,
 	(uint64_t)100000000000000000, (uint64_t)200000000000000000, (uint64_t)300000000000000000, (uint64_t)400000000000000000, (uint64_t)500000000000000000, (uint64_t)600000000000000000, (uint64_t)700000000000000000, (uint64_t)800000000000000000, (uint64_t)900000000000000000,
@@ -101,7 +104,7 @@ static std::atomic<uint64_t> block_hashes_cached_count(0);
 	{                                                \
 		if(!(expr))                                  \
 		{                                            \
-			MWARNING(message);                       \
+			GULPS_WARN(message);                       \
 			throw std::runtime_error(message);       \
 		}                                            \
 	}
@@ -173,14 +176,26 @@ bool expand_transaction_1(transaction &tx, bool base_only)
 	{
 		if (rv.p.bulletproofs.size() != 1)
 		{
-			LOG_PRINT_L1("Failed to parse transaction from blob, bad bulletproofs size in tx " << get_transaction_hash(tx));
+			GULPS_LOGF_L1("Failed to parse transaction from blob, bad outPk size in tx {}", get_transaction_hash(tx));
 			return false;
 		}
 
 		if (rv.p.bulletproofs[0].L.size() < 6)
 		{
-			LOG_PRINT_L1("Failed to parse transaction from blob, bad bulletproofs L size in tx " << get_transaction_hash(tx));
-			return false;
+			const bool bulletproof = rv.type == rct::RCTTypeFullBulletproof || rv.type == rct::RCTTypeSimpleBulletproof;
+			if(bulletproof)
+			{
+				if(rv.p.bulletproofs.size() != tx.vout.size())
+				{
+					GULPS_LOGF_L1("Failed to parse transaction from blob, bad bulletproofs size in tx {}", get_transaction_hash(tx));
+					return false;
+				}
+				for(size_t n = 0; n < rv.outPk.size(); ++n)
+				{
+					rv.p.bulletproofs[n].V.resize(1);
+					rv.p.bulletproofs[n].V[0] = rv.outPk[n].mask;
+				}
+			}
 		}
 
 		const size_t max_outputs = 1 << (rv.p.bulletproofs[0].L.size() - 6);
@@ -391,7 +406,7 @@ bool parse_tx_extra(const std::vector<uint8_t> &tx_extra, std::vector<tx_extra_f
 		tx_extra_field field;
 		bool r = ::do_serialize(ar, field);
 
-		CHECK_AND_NO_ASSERT_MES_L1(r, false, "failed to deserialize extra field! n= " << tx_extra_fields.size() << " extra = " << 
+		CHECK_AND_NO_ASSERT_MES_L1(r, false, "failed to deserialize extra field! n= " << tx_extra_fields.size() << " extra = " <<
 			string_tools::buff_to_hex_nodelimer(std::string(reinterpret_cast<const char *>(tx_extra.data()), tx_extra.size())));
 
 		tx_extra_fields.push_back(field);
