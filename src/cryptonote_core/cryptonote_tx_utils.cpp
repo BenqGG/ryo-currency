@@ -43,6 +43,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
+#define GULPS_CAT_MAJOR "crtnte_tx_utils"
 
 #include "include_base_utils.h"
 #include "string_tools.h"
@@ -58,6 +59,8 @@ using namespace epee;
 #include "cryptonote_tx_utils.h"
 #include "multisig/multisig.h"
 #include "ringct/rctSigs.h"
+
+#include "common/gulps.hpp"
 
 using namespace crypto;
 
@@ -87,7 +90,7 @@ void classify_addresses(const std::vector<tx_destination_entry> &destinations, c
 			}
 		}
 	}
-	LOG_PRINT_L2("destinations include " << num_stdaddresses << " standard addresses and " << num_subaddresses << " subaddresses");
+	GULPS_LOGF_L2("destinations include {} standard addresses and {} subaddresses", num_stdaddresses , num_subaddresses);
 }
 //---------------------------------------------------------------
 bool construct_miner_tx(cryptonote::network_type nettype, size_t height, size_t median_size, uint64_t already_generated_coins, size_t current_block_size, uint64_t fee, const account_public_address &miner_address, transaction &tx, const blobdata &extra_nonce)
@@ -105,12 +108,12 @@ bool construct_miner_tx(cryptonote::network_type nettype, size_t height, size_t 
 	uint64_t block_reward;
 	if(!get_block_reward(nettype, median_size, current_block_size, already_generated_coins, block_reward, height))
 	{
-		LOG_PRINT_L0("Block is too big");
+		GULPS_PRINT("Block is too big");
 		return false;
 	}
 
 #if defined(DEBUG_CREATE_BLOCK_TEMPLATE)
-	LOG_PRINT_L1("Creating block template: reward " << block_reward << ", fee " << fee);
+	GULPS_LOGF_L1("Creating block template: reward {}, fee {}", block_reward , fee);
 #endif
 	block_reward += fee;
 
@@ -125,7 +128,7 @@ bool construct_miner_tx(cryptonote::network_type nettype, size_t height, size_t 
 
 	tx_out out = { block_reward, txout_to_key(out_eph_public_key) };
 	tx.vout.push_back(out);
-	
+
 	uint64_t dev_fund_amount;
 	if(get_dev_fund_amount(nettype, height, dev_fund_amount))
 	{
@@ -135,10 +138,10 @@ bool construct_miner_tx(cryptonote::network_type nettype, size_t height, size_t 
 
 		r = crypto::generate_key_derivation(dev_addr.address.m_view_public_key, txkey.sec, derivation);
 		CHECK_AND_ASSERT_MES(r, false, "while creating outs: failed to generate_key_derivation(" << dev_addr.address.m_view_public_key << ", " << txkey.sec << ")");
-		
+
 		r = crypto::derive_public_key(derivation, 1, dev_addr.address.m_spend_public_key, out_eph_public_key);
 		CHECK_AND_ASSERT_MES(r, false, "while creating outs: failed to derive_public_key(" << derivation << ", 1, " << dev_addr.address.m_spend_public_key << ")");
-		
+
 		out = { dev_fund_amount, txout_to_key(out_eph_public_key) };
 		tx.vout.push_back(out);
 	}
@@ -153,7 +156,7 @@ bool construct_miner_tx(cryptonote::network_type nettype, size_t height, size_t 
 
 	tx.invalidate_hashes();
 
-	//LOG_PRINT("MINER_TX generated ok, block_reward=" << print_money(block_reward) << "("  << print_money(block_reward - fee) << "+" << print_money(fee)
+	//GULPS_PRINT("MINER_TX generated ok, block_reward=" << print_money(block_reward) << "("  << print_money(block_reward - fee) << "+" << print_money(fee)
 	//  << "), current_block_size=" << current_block_size << ", already_generated_coins=" << already_generated_coins << ", tx_id=" << get_transaction_hash(tx), LOG_LEVEL_2);
 	return true;
 }
@@ -186,7 +189,13 @@ bool construct_tx_with_tx_key(const account_keys &sender_account_keys, const std
 
 	if(sources.empty())
 	{
-		LOG_ERROR("Empty sources");
+		GULPS_LOG_ERROR("Empty sources");
+		return false;
+	}
+
+	if(!rct)
+	{
+		GULPS_LOG_ERROR("Non-rct txes are not supported");
 		return false;
 	}
 
@@ -202,12 +211,54 @@ bool construct_tx_with_tx_key(const account_keys &sender_account_keys, const std
 
 	if(unlock_time > common_config::CRYPTONOTE_MAX_BLOCK_NUMBER)
 	{
-		LOG_ERROR("Timed transaction lock is no longer supported. Please use a block number.");
+		GULPS_LOG_ERROR("Timed transaction lock is no longer supported. Please use a block number.");
 		return false;
 	}
 
 	tx.unlock_time = unlock_time;
 	crypto::public_key txkey_pub;
+
+	// if we have a stealth payment id, find it and encrypt it with the tx key now
+	std::vector<tx_extra_field> tx_extra_fields;
+	if(parse_tx_extra(tx.extra, tx_extra_fields))
+	{
+		tx_extra_nonce extra_nonce;
+		if(find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
+		{
+			crypto::hash8 payment_id = null_hash8;
+			if(get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
+			{
+				GULPS_LOGF_L2("Encrypting payment id " , payment_id.data);
+				crypto::public_key view_key_pub = get_destination_view_key_pub(destinations, change_addr);
+				if(view_key_pub == null_pkey)
+				{
+					GULPS_LOG_ERROR("Destinations have to have exactly one output to support encrypted payment ids");
+					return false;
+				}
+
+				if(!hwdev.encrypt_payment_id(payment_id, view_key_pub, tx_key))
+				{
+					GULPS_LOG_ERROR("Failed to encrypt payment id");
+					return false;
+				}
+
+				std::string extra_nonce;
+				set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
+				remove_field_from_tx_extra(tx.extra, typeid(tx_extra_nonce));
+				if(!add_extra_nonce_to_tx_extra(tx.extra, extra_nonce))
+				{
+					GULPS_LOG_ERROR("Failed to add encrypted payment id to tx extra");
+					return false;
+				}
+				GULPS_LOGF_L1("Encrypted payment ID: " , payment_id.data);
+			}
+		}
+	}
+	else
+	{
+		GULPS_LOG_ERROR("Failed to parse tx extra");
+		return false;
+	}
 
 	struct input_generation_context_data
 	{
@@ -223,7 +274,7 @@ bool construct_tx_with_tx_key(const account_keys &sender_account_keys, const std
 		++idx;
 		if(src_entr.real_output >= src_entr.outputs.size())
 		{
-			LOG_ERROR("real_output index (" << src_entr.real_output << ")bigger than output_keys.size()=" << src_entr.outputs.size());
+			GULPS_LOGF_ERROR("real_output index ({})bigger than output_keys.size()={}", src_entr.real_output, src_entr.outputs.size());
 			return false;
 		}
 		summary_inputs_money += src_entr.amount;
@@ -235,18 +286,17 @@ bool construct_tx_with_tx_key(const account_keys &sender_account_keys, const std
 		const auto &out_key = reinterpret_cast<const crypto::public_key &>(src_entr.outputs[src_entr.real_output].second.dest);
 		if(!generate_key_image_helper(sender_account_keys, subaddresses, out_key, src_entr.real_out_tx_key, src_entr.real_out_additional_tx_keys, src_entr.real_output_in_tx_index, in_ephemeral, img, hwdev))
 		{
-			LOG_ERROR("Key image generation failed!");
+			GULPS_LOG_ERROR("Key image generation failed!");
 			return false;
 		}
 
 		//check that derivated key is equal with real output key (if non multisig)
 		if(!msout && !(in_ephemeral.pub == src_entr.outputs[src_entr.real_output].second.dest))
 		{
-			LOG_ERROR("derived public key mismatch with output public key at index " << idx << ", real out " << src_entr.real_output << "! " << ENDL << "derived_key:"
-																					 << string_tools::pod_to_hex(in_ephemeral.pub) << ENDL << "real output_public_key:"
-																					 << string_tools::pod_to_hex(src_entr.outputs[src_entr.real_output].second.dest));
-			LOG_ERROR("amount " << src_entr.amount << ", rct " << src_entr.rct);
-			LOG_ERROR("tx pubkey " << src_entr.real_out_tx_key << ", real_output_in_tx_index " << src_entr.real_output_in_tx_index);
+			GULPS_LOGF_ERROR("derived public key mismatch with output public key at index{} , real out {}!\nderived_key:{}\nreal output_public_key:{}", idx, src_entr.real_output ,
+																				string_tools::pod_to_hex(in_ephemeral.pub), string_tools::pod_to_hex(src_entr.outputs[src_entr.real_output].second.dest));
+			GULPS_LOGF_ERROR("amount {}, rct {}", src_entr.amount, src_entr.rct);
+			GULPS_LOGF_ERROR("tx pubkey {}, real_output_in_tx_index {}", src_entr.real_out_tx_key, src_entr.real_output_in_tx_index);
 			return false;
 		}
 
@@ -363,12 +413,14 @@ bool construct_tx_with_tx_key(const account_keys &sender_account_keys, const std
 	}
 	CHECK_AND_ASSERT_MES(additional_tx_public_keys.size() == additional_tx_keys.size(), false, "Internal error creating additional public keys");
 
-	LOG_PRINT_L2("tx pubkey: " << txkey_pub);
+	remove_field_from_tx_extra(tx.extra, typeid(tx_extra_additional_pub_keys));
+
+	GULPS_LOGF_L2("tx pubkey: " , txkey_pub);
 	if(need_additional_txkeys)
 	{
-		LOG_PRINT_L2("additional tx pubkeys: ");
+		GULPS_LOG_L2("additional tx pubkeys: ");
 		for(size_t i = 0; i < additional_tx_public_keys.size(); ++i)
-			LOG_PRINT_L2(additional_tx_public_keys[i]);
+			GULPS_LOG_L2(additional_tx_public_keys[i]);
 		add_additional_tx_pub_keys_to_extra(tx.extra, additional_tx_public_keys);
 	}
 
@@ -452,7 +504,7 @@ bool construct_tx_with_tx_key(const account_keys &sender_account_keys, const std
 	//check money
 	if(summary_outs_money > summary_inputs_money)
 	{
-		LOG_ERROR("Transaction inputs money (" << summary_inputs_money << ") less than outputs money (" << summary_outs_money << ")");
+		GULPS_LOGF_ERROR("Transaction inputs money ({}) less than outputs money ({})", summary_inputs_money, summary_outs_money);
 		return false;
 	}
 
@@ -462,7 +514,7 @@ bool construct_tx_with_tx_key(const account_keys &sender_account_keys, const std
 		zero_secret_key &= (sender_account_keys.m_spend_secret_key.data[i] == 0);
 	if(zero_secret_key)
 	{
-		MDEBUG("Null secret key, skipping signatures");
+		GULPS_LOG_L1("Null secret key, skipping signatures");
 	}
 
 	size_t n_total_outs = sources[0].outputs.size(); // only for non-simple rct
@@ -478,7 +530,7 @@ bool construct_tx_with_tx_key(const account_keys &sender_account_keys, const std
 		{
 			if(src_entr.real_output != sources.begin()->real_output)
 			{
-				LOG_ERROR("All inputs must have the same index for non-simple ringct");
+				GULPS_LOG_ERROR("All inputs must have the same index for non-simple ringct");
 				return false;
 			}
 		}
@@ -488,7 +540,7 @@ bool construct_tx_with_tx_key(const account_keys &sender_account_keys, const std
 		{
 			if(n_total_outs != sources[i].outputs.size())
 			{
-				LOG_ERROR("Non-simple ringct transaction has varying ring size");
+				GULPS_LOG_ERROR("Non-simple ringct transaction has varying ring size");
 				return false;
 			}
 		}
@@ -573,7 +625,7 @@ bool construct_tx_with_tx_key(const account_keys &sender_account_keys, const std
 
 	CHECK_AND_ASSERT_MES(tx.vout.size() == outSk.size(), false, "outSk size does not match vout");
 
-	MCINFO("construct_tx", "transaction_created: " << get_transaction_hash(tx) << ENDL << obj_to_json_str(tx) << ENDL);
+	GULPS_CATF_INFO("construct_tx", "transaction_created: {}\n{}\n",  get_transaction_hash(tx).data, obj_to_json_str(tx));
 
 	tx.invalidate_hashes();
 
@@ -600,7 +652,7 @@ bool construct_tx_and_get_tx_key(const account_keys &sender_account_keys, const 
 			additional_tx_keys.push_back(keypair::generate(sender_account_keys.get_device()).sec);
 	}
 
-	bool r = construct_tx_with_tx_key(sender_account_keys, subaddresses, sources, destinations, change_addr, 
+	bool r = construct_tx_with_tx_key(sender_account_keys, subaddresses, sources, destinations, change_addr,
 		payment_id, tx, unlock_time, tx_key, additional_tx_keys, bulletproof, msout, use_uniform_pids);
 
 	hwdev.close_tx();
@@ -619,7 +671,7 @@ bool construct_tx(const account_keys &sender_account_keys, std::vector<tx_source
 //---------------------------------------------------------------
 bool generate_genesis_block(block &bl, std::string const &genesis_tx, uint32_t nonce)
 {
-	LOG_PRINT_L1("Generating genesis_tx tx : " << genesis_tx << ", nonce : " << nonce);
+	GULPS_LOGF_L1("Generating genesis_tx tx : {}, nonce : {}", genesis_tx , nonce);
 
 	//genesis block
 	bl = boost::value_initialized<block>();
