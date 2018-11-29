@@ -41,13 +41,14 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#define GULPS_CAT_MAJOR "perf_timer"
+
 
 #include "perf_timer.h"
 #include "misc_os_dependent.h"
 #include <vector>
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "perf"
+#include "common/gulps.hpp"
 
 namespace tools
 {
@@ -107,7 +108,7 @@ void set_performance_timer_log_level(el::Level level)
 {
 	if(level != el::Level::Debug && level != el::Level::Trace && level != el::Level::Info && level != el::Level::Warning && level != el::Level::Error && level != el::Level::Fatal)
 	{
-		MERROR("Wrong log level: " << el::LevelHelper::convertToString(level) << ", using Debug");
+		GULPS_ERRORF("Wrong log level: {}, using Debug", el::LevelHelper::convertToString(level));
 		level = el::Level::Debug;
 	}
 	performance_timer_log_level = level;
@@ -138,7 +139,8 @@ LoggingPerformanceTimer::LoggingPerformanceTimer(const std::string &s, const std
 			for(const auto *tmp : *performance_timers)
 				if(!tmp->paused)
 					++size;
-			MCLOG(pt->level, cat.c_str(), "PERF           " << std::string((size - 1) * 2, ' ') << "  " << pt->name);
+			//TODO SHOULD WE LOG BASED ON GIVEN LEVEL?
+			GULPS_LOGF_L1("PERF           {} {}", std::string((size - 1) * 2, ' '), pt->name);
 			pt->started = true;
 		}
 	}
@@ -156,12 +158,13 @@ LoggingPerformanceTimer::~LoggingPerformanceTimer()
 	pause();
 	performance_timers->pop_back();
 	char s[12];
-	snprintf(s, sizeof(s), "%8llu  ", (unsigned long long)(ticks_to_ns(ticks) / (1000000000 / unit)));
+	GULPS_PRINTF("{}{}{}{}",s , sizeof(s), "%8llu  ", (unsigned long long)(ticks_to_ns(ticks) / (1000000000 / unit)));
 	size_t size = 0;
 	for(const auto *tmp : *performance_timers)
 		if(!tmp->paused || tmp == this)
 			++size;
-	MCLOG(level, cat.c_str(), "PERF " << s << std::string(size * 2, ' ') << "  " << name);
+	//TODO SHOULD WE LOG BASED ON GIVEN LEVEL?
+	GULPS_CATF_LOG_L1(cat.c_str(),"PERF {}{} {}", s, std::string(size * 2, ' '), name);
 	if(performance_timers->empty())
 	{
 		delete performance_timers;
