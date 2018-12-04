@@ -158,7 +158,7 @@ LoggingPerformanceTimer::~LoggingPerformanceTimer()
 	pause();
 	performance_timers->pop_back();
 	char s[12];
-	GULPS_PRINTF("{}{}{}{}",s , sizeof(s), "%8llu  ", (unsigned long long)(ticks_to_ns(ticks) / (1000000000 / unit)));
+	GULPS_PRINTF("{} {} {}",s , sizeof(s), (unsigned long long)(ticks_to_ns(ticks) / (1000000000 / unit)));
 	size_t size = 0;
 	for(const auto *tmp : *performance_timers)
 		if(!tmp->paused || tmp == this)
