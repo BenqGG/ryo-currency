@@ -31,6 +31,8 @@
 #include <boost/regex.hpp>
 
 #include "ringct/multiexp.h"
+#include "misc_log_ex.h"
+using namespace epee;
 #include "common/command_line.h"
 #include "common/util.h"
 #include "performance_tests.h"

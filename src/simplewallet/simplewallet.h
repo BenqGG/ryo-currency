@@ -327,7 +327,7 @@ class simple_wallet : public tools::i_wallet2_callback
 			}
 			else
 			{
-				LOG_ERROR("Failed to get current blockchain height: " << err);
+				GULPS_LOG_ERROR("Failed to get current blockchain height: ", err);
 			}
 		}
 
