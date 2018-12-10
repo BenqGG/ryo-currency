@@ -54,9 +54,6 @@ extern "C" {
 #include "multiexp.h"
 #include "rctOps.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "bulletproofs"
-
 #define DEBUG_BP
 
 #define PERF_TIMER_START_BP(x) PERF_TIMER_START_UNIT(x, 1000000)
