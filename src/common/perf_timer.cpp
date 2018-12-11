@@ -140,7 +140,7 @@ LoggingPerformanceTimer::LoggingPerformanceTimer(const std::string &s, const std
 				if(!tmp->paused)
 					++size;
 			//TODO SHOULD WE LOG BASED ON GIVEN LEVEL?
-			GULPS_CATF_LOG_L1(cat.c_str(), "PERF           {} {}", std::string((size - 1) * 2, ' '), pt->name);
+			GULPS_LOGF_L1("PERF           {} {}", std::string((size - 1) * 2, ' '), pt->name);
 			pt->started = true;
 		}
 	}
@@ -158,7 +158,7 @@ LoggingPerformanceTimer::~LoggingPerformanceTimer()
 	pause();
 	performance_timers->pop_back();
 	char s[12];
-	snprintf(s, sizeof(s), "%8llu  ", (unsigned long long)(ticks_to_ns(ticks) / (1000000000 / unit)));
+	GULPS_PRINTF("{} {} {}",s , sizeof(s), (unsigned long long)(ticks_to_ns(ticks) / (1000000000 / unit)));
 
 	size_t size = 0;
 	for(const auto *tmp : *performance_timers)
