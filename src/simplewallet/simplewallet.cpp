@@ -745,8 +745,8 @@ bool simple_wallet::print_fee_info(const std::vector<std::string> &args /* = std
 	constexpr uint64_t typical_size_kb = 15;
 
 	GULPS_PRINTF_OK(tr("Current fee is {} {} per kB and {} {} per ring member."),
-	print_money(cryptonote::common_config::FEE_PER_KB), cryptonote::get_unit(cryptonote::get_default_decimal_point()),
-	print_money(cryptonote::common_config::FEE_PER_RING_MEMBER), cryptonote::get_unit(cryptonote::get_default_decimal_point()));
+	print_money(common_config::FEE_PER_KB), get_unit(get_default_decimal_point()),
+	print_money(common_config::FEE_PER_RING_MEMBER), get_unit(get_default_decimal_point()));
 
 	std::vector<uint64_t> fees;
 	for(uint32_t priority = 1; priority <= 4; ++priority)
@@ -1658,17 +1658,17 @@ bool simple_wallet::set_default_ring_size(const std::vector<std::string> &args /
 	{
 		if(strchr(args[1].c_str(), '-'))
 		{
-			GULPS_PRINT_FAIL(tr("ring size must be an integer >= "), MIN_RING_SIZE);
+			GULPS_PRINT_FAIL(tr("ring size must be an integer >= "), get_min_ring_size());
 			return true;
 		}
 		uint32_t ring_size = boost::lexical_cast<uint32_t>(args[1]);
 		if(ring_size < get_min_ring_size() && ring_size != 0)
 		{
-			GULPS_PRINT_FAIL(tr("ring size must be an integer >= "), MIN_RING_SIZE);
+			GULPS_PRINT_FAIL(tr("ring size must be an integer >= "), get_min_ring_size());
 			return true;
 		}
 
-		if(ring_size != 0 && ring_size != DEFAULT_MIX + 1)
+		if(ring_size != 0 && ring_size != get_min_ring_size())
 			GULPS_PRINT_OK(tr("WARNING: this is a non default ring size, which may harm your privacy. Default is recommended."));
 
 		const auto pwd_container = get_and_verify_password();
@@ -1681,7 +1681,7 @@ bool simple_wallet::set_default_ring_size(const std::vector<std::string> &args /
 	}
 	catch(const boost::bad_lexical_cast &)
 	{
-		GULPS_PRINT_FAIL(tr("ring size must be an integer >= "), MIN_RING_SIZE);
+		GULPS_PRINT_FAIL(tr("ring size must be an integer >= "), get_min_ring_size());
 		return true;
 	}
 	catch(...)
@@ -2416,7 +2416,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
 
 #define CHECK_SIMPLE_VARIABLE(name, f, help) if(check_simple_variable(args, name, f, help)) return true
 
-		std::string rs = fmt::format(tr("integer >= {}"), MIN_RING_SIZE);
+		std::string rs = fmt::format(tr("integer >= {}"), get_min_ring_size());
 		CHECK_SIMPLE_VARIABLE("always-confirm-transfers", &simple_wallet::set_always_confirm_transfers, tr("0 or 1"));
 		CHECK_SIMPLE_VARIABLE("print-ring-members",  &simple_wallet::set_print_ring_members, tr("0 or 1"));
 		CHECK_SIMPLE_VARIABLE("store-tx-info",  &simple_wallet::set_store_tx_info, tr("0 or 1"));
@@ -4186,7 +4186,7 @@ bool simple_wallet::show_payments(const std::vector<std::string> &args)
 			m_wallet->get_payments(payment_id, payments);
 			if(payments.empty())
 			{
-				GULPS_PRINT_OK(tr("No payments with id "), payment_id);
+				GULPS_PRINT_OK(tr("No payments with id "), payment_id.payment_id);
 				continue;
 			}
 
@@ -4197,7 +4197,7 @@ bool simple_wallet::show_payments(const std::vector<std::string> &args)
 					payments_found = true;
 				}
 
-				GULPS_PRINTF_GREEN("{:>68}{:>68}{:>12}{:>21}{:>16}{:>16}", payment_id, pd.m_tx_hash, pd.m_block_height,
+				GULPS_PRINTF_GREEN("{:>68}{:>68}{:>12}{:>21}{:>16}{:>16}", payment_id.payment_id.data, pd.m_tx_hash, pd.m_block_height,
 		   	print_money(pd.m_amount), pd.m_unlock_time, pd.m_subaddr_index.minor);
 
 			}
@@ -4518,16 +4518,6 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
 			}
 
 			payment_id = make_paymenet_id(info.payment_id);
-
-			std::string extra_nonce;
-			set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, info.payment_id);
-			bool r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
-			if(!r)
-			{
-				GULPS_PRINT_FAIL(tr("failed to set up payment id, though it was decoded correctly"));
-				return true;
-			}
-			payment_id_seen = true;
 		}
 
 		bool ok = cryptonote::parse_amount(de.amount, local_args[i + 1]);
@@ -4840,7 +4830,7 @@ bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &a
 		if(!tools::wallet2::parse_payment_id(local_args.back(), pid) && local_args.size() == 3)
 		{
 
-			GULPS_PRINT_FAIL(tr("payment id has invalid format, expected 16 or 64 character hex string: "), payment_id_str);
+			GULPS_PRINT_FAIL(tr("payment id has invalid format, expected 16 or 64 character hex string: "), local_args.back());
 
 			return true;
 		}
@@ -4865,15 +4855,6 @@ bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &a
 		}
 
 		pid = crypto::make_paymenet_id(info.payment_id);
-		std::string extra_nonce;
-		set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, info.payment_id);
-		bool r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
-		if(!r)
-		{
-			GULPS_PRINT_FAIL(tr("failed to set up payment id, though it was decoded correctly"));
-			return true;
-		}
-		payment_id_seen = true;
 	}
 
 	// prompt is there is no payment id and confirmation is required
@@ -5029,20 +5010,9 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
 	{
 		if(!tools::wallet2::parse_payment_id(local_args.back(), pid))
 		{
-			set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, payment_id8);
-		}
-		else
-		{
-			GULPS_PRINT_FAIL(tr("failed to parse Payment ID"));
+			GULPS_PRINT_FAIL(tr("payment id has invalid format, expected 16 or 64 character hex string: "), local_args.back());
 			return true;
 		}
-
-		if(!add_extra_nonce_to_tx_extra(extra, extra_nonce))
-		{
-			GULPS_PRINT_FAIL(tr("failed to set up payment id, though it was decoded correctly"));
-			return true;
-		}
-
 		local_args.pop_back();
 	}
 
@@ -5075,14 +5045,6 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
 		}
 
 		pid = crypto::make_paymenet_id(info.payment_id);
-		std::string extra_nonce;
-		set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, info.payment_id);
-		if(!add_extra_nonce_to_tx_extra(extra, extra_nonce))
-		{
-			GULPS_PRINT_FAIL(tr("failed to set up payment id, though it was decoded correctly"));
-			return true;
-		}
-		payment_id_seen = true;
 	}
 
 	// prompt if there is no payment id and confirmation is required
@@ -5242,7 +5204,8 @@ bool simple_wallet::donate(const std::vector<std::string> &args_)
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::accept_loaded_tx(const std::function<size_t()> get_num_txes, const std::function<const tools::wallet2::tx_construction_data &(size_t)> &get_tx, const std::string &extra_message)
-{
+{	
+	//TODO NOT SURE IF REBASED THIS FUNCTION CORRECTLY
 	// gather info to ask the user
 	uint64_t amount = 0, amount_to_dests = 0, change = 0;
 	size_t min_ring_size = ~0;
@@ -5349,8 +5312,9 @@ bool simple_wallet::accept_loaded_tx(const std::function<size_t()> get_num_txes,
 		change_string += tr("no change");
 
 	uint64_t fee = amount - amount_to_dests;
-	std::string prompt_str = fmt::format(tr("Loaded {} transactions, for {}, fee {}, {}, {}, with min ring size {}, {}. {}Is this okay? (Y/Yes/N/No): "),
-		get_num_txes(), print_money(amount), print_money(fee), dest_string, change_string, min_ring_size, payment_id_string, extra_message);
+	std::string prompt_str = fmt::format(tr("Loaded {} transactions, for {}, fee {}, {}, {}, with min ring size {}. {}Is this okay? (Y/Yes/N/No): "),
+	(unsigned long)get_num_txes(), print_money(amount), print_money(fee), dest_string, change_string, (unsigned long)min_ring_size, extra_message);
+		
 	return command_line::is_yes(input_line(prompt_str));
 }
 //----------------------------------------------------------------------------------------------------

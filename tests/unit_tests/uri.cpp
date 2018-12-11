@@ -28,6 +28,7 @@
 
 #include "wallet/wallet2.h"
 #include "gtest/gtest.h"
+#include "misc_log_ex.h"
 
 #define TEST_ADDRESS "RYoTr1KP7tgJFQ4bTWto4MhM3qT4YA8gV3smuJyxucJgBDdCWehV4btgcyNb11MAUC7t9yPDUCwAoREVdyVNankWERkEddsUix3"
 // included payment id: <6f1aa052630b29fb>

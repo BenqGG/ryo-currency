@@ -826,7 +826,7 @@ bool core::check_tx_semantic(const transaction &tx, bool keeped_by_block) const
 		}
 		break;
 	default:
-		GULPS_VERIFYF_ERR_TX("Unknown rct type: " << rv.type);
+	GULPS_VERIFY_ERR_TX("Unknown rct type: ", rv.type);
 		return false;
 	}
 

@@ -590,43 +590,10 @@ size_t estimate_rct_tx_size(int n_inputs, int mixin, int n_outputs, size_t extra
 	return size;
 }
 
-crypto::hash8 get_short_payment_id(const tools::wallet2::pending_tx &ptx, hw::device &hwdev)
+inline size_t estimate_rct_tx_size(int n_inputs, int mixin, int n_outputs, bool bulletproof)
 {
-	crypto::hash8 payment_id8 = null_hash8;
-	std::vector<tx_extra_field> tx_extra_fields;
-	parse_tx_extra(ptx.tx.extra, tx_extra_fields); // ok if partially parsed
-	cryptonote::tx_extra_nonce extra_nonce;
-	if(find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
-	{
-		if(get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
-		{
-			if(ptx.dests.empty())
-			{
-				GULPS_WARN("Encrypted payment id found, but no destinations public key, cannot decrypt");
-				return crypto::null_hash8;
-			}
-			hwdev.decrypt_payment_id(payment_id8, ptx.dests[0].addr.m_view_public_key, ptx.tx_key);
-		}
-	}
-	return payment_id8;
-}
-
-tools::wallet2::tx_construction_data get_construction_data_with_decrypted_short_payment_id(const tools::wallet2::pending_tx &ptx, hw::device &hwdev)
-{
-	tools::wallet2::tx_construction_data construction_data = ptx.construction_data;
-	crypto::hash8 payment_id = get_short_payment_id(ptx, hwdev);
-	if(payment_id != null_hash8)
-	{
-		// Remove encrypted
-		remove_field_from_tx_extra(construction_data.extra, typeid(cryptonote::tx_extra_nonce));
-		// Add decrypted
-		std::string extra_nonce;
-		set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
-		THROW_WALLET_EXCEPTION_IF(!add_extra_nonce_to_tx_extra(construction_data.extra, extra_nonce),
-								  tools::error::wallet_internal_error, "Failed to add decrypted payment id to tx extra");
-		GULPS_LOG_L1("Decrypted payment ID: ", payment_id);
-	}
-	return construction_data;
+	// extra of tx_pub_key and encrypted id
+	return estimate_rct_tx_size(n_inputs, mixin, n_outputs, 41 + 33, bulletproof);
 }
 
 uint32_t get_subaddress_clamped_sum(uint32_t idx, uint32_t extra)
@@ -3780,7 +3747,7 @@ bool wallet2::parse_payment_id(const std::string &payment_id_str, crypto::unifor
 	cryptonote::blobdata payment_id_data;
 	if(!epee::string_tools::parse_hexstr_to_binbuff(payment_id_str, payment_id_data))
 	{
-		MERROR("parse_payment_id: invalid hex: " << payment_id_str);
+		GULPS_ERROR("parse_payment_id: invalid hex: ", payment_id_str);
 		return false;
 	}
 
@@ -3798,7 +3765,7 @@ bool wallet2::parse_payment_id(const std::string &payment_id_str, crypto::unifor
 		return true;
 	}
 	else
-		MERROR("parse_payment_id: invalid size: " << payment_id_data.size());
+		GULPS_ERROR("parse_payment_id: invalid size: ", payment_id_data.size());
 
 	return false;
 }
@@ -4590,7 +4557,7 @@ crypto::hash wallet2::get_payment_id(const pending_tx &ptx) const
 	{
 		if(ptx.dests.empty())
 		{
-			MWARNING("Encrypted payment id found, but no destinations public key, cannot decrypt");
+			GULPS_WARN("Encrypted payment id found, but no destinations public key, cannot decrypt");
 			return crypto::null_hash;
 		}
 
@@ -6324,7 +6291,8 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
 	rct::multisig_out msout;
 	GULPS_LOG_L2("constructing tx");
 	auto sources_copy = sources;
-	bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sources, splitted_dsts, change_dts.addr, extra, tx, unlock_time, tx_key, additional_tx_keys, true, bulletproof, m_multisig ? &msout : NULL);
+	bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sources, splitted_dsts, change_dts.addr, payment_id, tx, unlock_time, tx_key, additional_tx_keys, 
+	      bulletproof, m_multisig ? &msout : NULL, uniform_pids);
 	GULPS_LOG_L2("constructed tx, r=", r);
 	THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, dsts, unlock_time, m_nettype);
 	THROW_WALLET_EXCEPTION_IF(upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, upper_transaction_size_limit);
@@ -6369,7 +6337,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
 				GULPS_LOG_L2("Creating supplementary multisig transaction");
 				cryptonote::transaction ms_tx;
 				auto sources_copy_copy = sources_copy;
-				bool r = cryptonote::construct_tx_with_tx_key(m_account.get_keys(), m_subaddresses, sources_copy_copy, splitted_dsts, change_dts.addr, extra, ms_tx, unlock_time, tx_key, additional_tx_keys, true, bulletproof, &msout, false);
+				bool r = cryptonote::construct_tx_with_tx_key(m_account.get_keys(), m_subaddresses, sources_copy_copy, splitted_dsts, change_dts.addr, payment_id, ms_tx, unlock_time, tx_key, additional_tx_keys, bulletproof, &msout, use_fork_rules(FORK_UNIFORM_IDS, 0));
 				GULPS_LOG_L2("constructed tx, r=", r);
 				THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_nettype);
 				THROW_WALLET_EXCEPTION_IF(upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, upper_transaction_size_limit);
@@ -7179,9 +7147,8 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const crypton
 		outs.clear();
 
 		// here, check if we need to sent tx and start a new one
-		GULPS_LOG_L2("Considering whether to create a tx now, ", tx.selected_transfers.size(), " inputs, tx limit ",
-															upper_transaction_size_limit);
-		const size_t estimated_rct_tx_size = estimate_rct_tx_size(tx.selected_transfers.size(), fake_outs_count, tx.dsts.size() + 1, extra.size(), bulletproof);
+		GULPS_LOG_L2("Considering whether to create a tx now, ", tx.selected_transfers.size(), " inputs, tx limit ", upper_transaction_size_limit);
+		const size_t estimated_rct_tx_size = estimate_rct_tx_size(tx.selected_transfers.size(), fake_outs_count, tx.dsts.size() + 1, bulletproof);
 		bool try_tx = (unused_dust_indices.empty() && unused_transfers_indices.empty()) || (estimated_rct_tx_size >= TX_SIZE_TARGET(upper_transaction_size_limit));
 
 		if(try_tx)
@@ -7195,8 +7162,8 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const crypton
 			tx.dsts.push_back(tx_destination_entry(1, address, is_subaddress));
 
 			GULPS_LOG_L2("Trying to create a tx now, with ", tx.dsts.size(), " destinations and ", tx.selected_transfers.size(), " outputs");
-			transfer_selected_rct(tx.dsts, tx.selected_transfers, fake_outs_count, outs, unlock_time, needed_fee, extra,
-								  test_tx, test_ptx, bulletproof);
+			transfer_selected_rct(tx.dsts, tx.selected_transfers, fake_outs_count, outs, unlock_time, needed_fee, payment_id,
+								  test_tx, test_ptx, bulletproof, uniform_pid);
 			auto txBlob = t_serializable_object_to_blob(test_ptx.tx);
 			needed_fee = calculate_fee(fake_outs_count+1, txBlob.size(), fee_multiplier);
 			available_for_fee = test_ptx.fee + test_ptx.dests[0].amount + test_ptx.change_dts.amount;
@@ -8719,9 +8686,7 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
 				swept_transfers.push_back(i);
 		}
 	}
-	GULPS_LOG_L1("Total: ", print_money(spent), " spent, ", print_money(unspent), " unspent");
-
-	MDEBUG("Total: " << print_money(spent) << " spent, " << print_money(unspent) << " unspent, swept outputs " << swept_transfers.size());
+	GULPS_LOG_L1("Total: ", print_money(spent), " spent, ", print_money(unspent), " unspent, swept outputs ", swept_transfers.size());
 
 	// query outgoing txes
 	COMMAND_RPC_GET_TRANSACTIONS::request gettxs_req;
@@ -8824,12 +8789,12 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
 				amount = td.amount();
 				tx_money_spent_in_ins += amount;
 
-				LOG_PRINT_L0("Spent money: " << print_money(amount) << ", with tx: " << *spent_txid);
+				GULPS_PRINT("Spent money: ", print_money(amount), ", with tx: ", *spent_txid);
 				set_spent(it->second, e.block_height);
 				if(m_callback)
 					m_callback->on_money_spent(e.block_height, *spent_txid, spent_tx, amount, spent_tx, td.m_subaddr_index);
 				if(subaddr_account != (uint32_t)-1 && subaddr_account != td.m_subaddr_index.major)
-					LOG_PRINT_L0("WARNING: This tx spends outputs received by different subaddress accounts, which isn't supposed to happen");
+					GULPS_PRINT("WARNING: This tx spends outputs received by different subaddress accounts, which isn't supposed to happen");
 				subaddr_account = td.m_subaddr_index.major;
 				subaddr_indices.insert(td.m_subaddr_index.minor);
 			}

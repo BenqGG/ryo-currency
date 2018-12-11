@@ -126,7 +126,8 @@ LoggingPerformanceTimer::LoggingPerformanceTimer(const std::string &s, const std
 {
 	if(!performance_timers)
 	{
-		MCLOG(level, cat.c_str(), "PERF             ----------");
+		//TODO SHOULD WE LOG BASED ON GIVEN LEVEL?
+		GULPS_CAT_LOG_L1(cat.c_str(), "PERF             ----------");
 		performance_timers = new std::vector<LoggingPerformanceTimer *>();
 		performance_timers->reserve(16); // how deep before realloc
 	}
@@ -140,7 +141,7 @@ LoggingPerformanceTimer::LoggingPerformanceTimer(const std::string &s, const std
 				if(!tmp->paused)
 					++size;
 			//TODO SHOULD WE LOG BASED ON GIVEN LEVEL?
-			GULPS_LOGF_L1("PERF           {} {}", std::string((size - 1) * 2, ' '), pt->name);
+			GULPS_CATF_LOG_L1(cat.c_str(), "PERF           {} {}", std::string((size - 1) * 2, ' '), pt->name);
 			pt->started = true;
 		}
 	}
@@ -158,7 +159,7 @@ LoggingPerformanceTimer::~LoggingPerformanceTimer()
 	pause();
 	performance_timers->pop_back();
 	char s[12];
-	GULPS_PRINTF("{} {} {}",s , sizeof(s), (unsigned long long)(ticks_to_ns(ticks) / (1000000000 / unit)));
+	snprintf(s, sizeof(s), "%8llu  ", (unsigned long long)(ticks_to_ns(ticks) / (1000000000 / unit)));
 
 	size_t size = 0;
 	for(const auto *tmp : *performance_timers)

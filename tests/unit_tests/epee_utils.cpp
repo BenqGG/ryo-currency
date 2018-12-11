@@ -49,6 +49,7 @@
 #include "p2p/net_peerlist_boost_serialization.h"
 #include "span.h"
 #include "string_tools.h"
+#include "misc_log_ex.h"
 
 namespace
 {

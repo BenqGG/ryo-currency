@@ -2606,21 +2606,21 @@ bool Blockchain::check_tx_outputs(const transaction &tx, tx_verification_context
 	bool has_bulletproofs = tx.rct_signatures.type == rct::RCTTypeBulletproof;
 	if((has_bulletproofs && tx.rct_signatures.p.bulletproofs.empty()) || (!has_bulletproofs && !tx.rct_signatures.p.bulletproofs.empty()))
 	{
-		MERROR("Invalid signature semantics");
+		GULPS_ERROR("Invalid signature semantics");
 		tvc.m_invalid_output = true;
 		return false;
 	}
 
 	if(has_bulletproofs && !check_hard_fork_feature(FORK_BULLETPROOFS))
 	{
-		MERROR("Bulletproofs are not allowed yet");
+		GULPS_ERROR("Bulletproofs are not allowed yet");
 		tvc.m_invalid_output = true;
 		return false;
 	}
 
 	if(!has_bulletproofs && check_hard_fork_feature(FORK_BULLETPROOFS_REQ))
 	{
-		MERROR("Bulletproofs are required");
+		GULPS_ERROR("Bulletproofs are required");
 		tvc.m_invalid_output = true;
 		return false;
 	}
@@ -2743,7 +2743,7 @@ bool Blockchain::check_tx_inputs(transaction &tx, tx_verification_context &tvc, 
 
 		if(vin_mixin > cryptonote::common_config::MAX_MIXIN)
 		{
-			GULPS_VERIFYF_ERR_TX("Tx {} has too high ring size ({}), max = {}", get_transaction_hash(tx) , vin_mixin , MAX_MIXIN + 1);
+      GULPS_VERIFYF_ERR_TX("Tx {} has too high ring size ({}), max = {}", get_transaction_hash(tx) , vin_mixin , cryptonote::common_config::MAX_MIXIN + 1);
 			tvc.m_verifivation_failed = true;
 			return false;
 		}
@@ -2809,7 +2809,7 @@ bool Blockchain::check_tx_inputs(transaction &tx, tx_verification_context &tvc, 
 			{
 				if(has_uniform_pid)
 				{
-					MERROR_VER("Tx has a duplicate uniform pid field.");
+					GULPS_VERIFY_ERR_TX("Tx has a duplicate uniform pid field.");
 					tvc.m_verifivation_failed = true;
 					return false;
 				}
@@ -2819,7 +2819,7 @@ bool Blockchain::check_tx_inputs(transaction &tx, tx_verification_context &tvc, 
 
 		if(uids_required && !has_uniform_pid)
 		{
-			MERROR_VER("Transaction has no uniform pid field.");
+			GULPS_VERIFY_ERR_TX("Transaction has no uniform pid field.");
 			tvc.m_verifivation_failed = true;
 			return false;
 		}
@@ -3666,13 +3666,13 @@ bool Blockchain::handle_block_to_main_chain(const block &bl, const crypto::hash 
 	// do this after updating the hard fork state since the size limit may change due to fork
 	update_next_cumulative_size_limit();
 
-	GULPS_INFOF("+++++ BLOCK SUCCESSFULLY ADDED\nid:\t{}\nPoW:\t{}\nHEIGHT {}, difficulty:\t{}\nblock reward: {}({}+{}), coinbase_blob_size: {} , cumulative size: {}, {}({}/{})ms", 
-										  id, proof_of_work, new_height - 1, current_diffic, 
+	GULPS_INFOF("+++++ BLOCK SUCCESSFULLY ADDED\nid:\t{}\nPoW:\t{}\nHEIGHT {}, difficulty:\t{}\nblock reward: {}({}+{}), coinbase_blob_size: {} , cumulative size: {}, {}({}/{})ms",
+										  id, proof_of_work, new_height - 1, current_diffic,
 										  print_money(fee_summary + base_reward), print_money(base_reward), print_money(fee_summary),
 										  coinbase_blob_size, cumulative_block_size, block_processing_time, target_calculating_time, longhash_calculating_time);
 	if(m_show_time_stats)
 	{
-		GULPS_INFOF("Height: {} blob: {} cumm: {} p/t: {} ({}/{}/{}/{}/{}/{}/{}/{}/{}/{}/{})ms", 
+		GULPS_INFOF("Height: {} blob: {} cumm: {} p/t: {} ({}/{}/{}/{}/{}/{}/{}/{}/{}/{}/{})ms",
 						 new_height, coinbase_blob_size, cumulative_block_size, block_processing_time,
 						 target_calculating_time , longhash_calculating_time,
 						 t1, t2, t3, t_exists, t_pool,
