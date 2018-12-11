@@ -2743,7 +2743,7 @@ bool Blockchain::check_tx_inputs(transaction &tx, tx_verification_context &tvc, 
 
 		if(vin_mixin > cryptonote::common_config::MAX_MIXIN)
 		{
-			GULPS_VERIFYF_ERR_TX("Tx {} has too high ring size ({}), max = {}", get_transaction_hash(tx) , vin_mixin , MAX_MIXIN + 1);
+			GULPS_VERIFYF_ERR_TX("Tx {} has too high ring size ({}), max = {}", get_transaction_hash(tx) , vin_mixin , cryptonote::common_config::MAX_MIXIN + 1);
 			tvc.m_verifivation_failed = true;
 			return false;
 		}
