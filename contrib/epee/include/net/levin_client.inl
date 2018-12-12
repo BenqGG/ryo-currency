@@ -26,9 +26,7 @@
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
-#ifdef GULPS_CAT_MAJOR
-	#undef GULPS_CAT_MAJOR
-#endif
+#undef GULPS_CAT_MAJOR
 #define GULPS_CAT_MAJOR "lev_cli"
 
 #include "string_tools.h"

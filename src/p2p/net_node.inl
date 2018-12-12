@@ -45,9 +45,7 @@
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 // IP blocking adapted from Boolberry
-#ifdef GULPS_CAT_MAJOR
-	#undef GULPS_CAT_MAJOR
-#endif 
+#undef GULPS_CAT_MAJOR 
 #define GULPS_CAT_MAJOR "net_node"
 
 #include <algorithm>

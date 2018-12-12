@@ -58,7 +58,6 @@
 #include <fmt/format.h>
 #include <fmt/time.h>
 #include <boost/algorithm/string.hpp>
-#include "easylogging++.h"
 
 #if defined(WIN32)
 #include <windows.h>
@@ -818,7 +817,7 @@ public:
 {                                       \
 	std::string str;	\
 	str = stream_writer::write(__VA_ARGS__);	\
-	GULPS_LOG_ERROR(__VA_ARGS__);                 \
+	GULPS_LOG_ERROR(str);                 \
 	throw std::runtime_error(str); \
 }
 

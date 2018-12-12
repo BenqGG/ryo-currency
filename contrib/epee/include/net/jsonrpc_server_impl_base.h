@@ -1,9 +1,7 @@
 #ifndef JSONRPC_SERVER_IMPL_BASE_H
 #define JSONRPC_SERVER_IMPL_BASE_H
 
-#ifdef GULPS_CAT_MAJOR
-	#undef GULPS_CAT_MAJOR
-#endif
+#undef GULPS_CAT_MAJOR
 #define GULPS_CAT_MAJOR "jsrpc_serv"
 
 #include <boost/bind.hpp>

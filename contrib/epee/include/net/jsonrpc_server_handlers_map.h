@@ -1,9 +1,7 @@
 #ifndef JSONRPC_SERVER_HANDLERS_MAP_H
 #define JSONRPC_SERVER_HANDLERS_MAP_H
 
-#ifdef GULPS_CAT_MAJOR
-	#undef GULPS_CAT_MAJOR
-#endif
+#undef GULPS_CAT_MAJOR
 #define GULPS_CAT_MAJOR "jsrpc_serv"
 
 #include "jsonrpc_protocol_handler.h"
