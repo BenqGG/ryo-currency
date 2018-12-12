@@ -171,14 +171,9 @@ void log_stack_trace(const char *msg)
 		GULPS_LOGF_L0("{:<4}{:<20#0.x} {:#0.x} + {:#0.x}", level, ip, (!status && dsym ? dsym : sym), off);
 		free(dsym);
 	}
-#else
-	std::stringstream ss;
-	ss << el::base::debug::StackTrace();
-	std::vector<std::string> lines;
-	std::string s = ss.str();
-	boost::split(lines, s, boost::is_any_of("\n"));
-	for(const auto &line : lines)
-		GULPS_LOG_L0(line);
+#else	
+	GULPS_LOG_L0("");
+	
 #endif
 }
 

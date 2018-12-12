@@ -100,16 +100,16 @@ uint64_t ticks_to_ns(uint64_t ticks)
 namespace tools
 {
 
-el::Level performance_timer_log_level = el::Level::Debug;
+gulps::level performance_timer_log_level = gulps::LEVEL_DEBUG;
 
 static __thread std::vector<LoggingPerformanceTimer *> *performance_timers = NULL;
 
-void set_performance_timer_log_level(el::Level level)
+void set_performance_timer_log_level(gulps::level level)
 {
-	if(level != el::Level::Debug && level != el::Level::Trace && level != el::Level::Info && level != el::Level::Warning && level != el::Level::Error && level != el::Level::Fatal)
+	if(level != gulps::LEVEL_DEBUG && level != gulps::LEVEL_TRACE && level != gulps::LEVEL_INFO && level != gulps::LEVEL_WARN && level != gulps::LEVEL_ERROR)
 	{
-		GULPS_ERRORF("Wrong log level: {}, using Debug", el::LevelHelper::convertToString(level));
-		level = el::Level::Debug;
+		GULPS_ERRORF("Wrong log level: {}, using Debug", gulps::level_to_str(level));
+		level = gulps::LEVEL_DEBUG;
 	}
 	performance_timer_log_level = level;
 }
@@ -122,7 +122,7 @@ PerformanceTimer::PerformanceTimer(bool paused) : started(true), paused(paused)
 		ticks = get_tick_count();
 }
 
-LoggingPerformanceTimer::LoggingPerformanceTimer(const std::string &s, const std::string &cat, uint64_t unit, el::Level l) : PerformanceTimer(), name(s), cat(cat), unit(unit), level(l)
+LoggingPerformanceTimer::LoggingPerformanceTimer(const std::string &s, const std::string &cat, uint64_t unit, gulps::level l) : PerformanceTimer(), name(s), cat(cat), unit(unit), level(l)
 {
 	if(!performance_timers)
 	{

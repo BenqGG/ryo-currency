@@ -19,7 +19,7 @@
 #endif
 
 #include "common/gulps.hpp"
-
+#include <signal.h>
 
 namespace posix
 {

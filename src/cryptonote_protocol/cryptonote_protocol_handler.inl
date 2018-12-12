@@ -63,13 +63,13 @@
 #include "net/network_throttle-detail.hpp"
 #include "profile_tools.h"
 
-#include "common/gulps.hpp"	
+#include "common/gulps.hpp"
 
 
 
 #define context_str std::string("[" + epee::net_utils::print_connection_context_short(context) + "]")
 
-#define GULPS_P2P_MESSAGE(...) GULPS_OUTPUTF(gulps::OUT_USER_0, gulps::LEVEL_INFO, "p2p", GULPS_CAT_MINOR, gulps::COLOR_WHITE, __VA_ARGS__) 
+#define GULPS_P2P_MESSAGE(...) GULPS_OUTPUTF(gulps::OUT_USER_0, gulps::LEVEL_INFO, "p2p", GULPS_CAT_MINOR, gulps::COLOR_WHITE, __VA_ARGS__)
 
 #define BLOCK_QUEUE_NBLOCKS_THRESHOLD 10					// chunks of N blocks
 #define BLOCK_QUEUE_SIZE_THRESHOLD (100 * 1024 * 1024)		// MB
@@ -320,15 +320,15 @@ bool t_cryptonote_protocol_handler<t_core>::process_payload_sync_data(const CORE
 		uint64_t max_block_height = std::max(hshd.current_height, m_core.get_current_blockchain_height());
 		uint64_t last_block_v1 = m_core.get_nettype() == TESTNET ? 624633 : m_core.get_nettype() == MAINNET ? 1009826 : (uint64_t)-1;
 		uint64_t diff_v2 = max_block_height > last_block_v1 ? std::min(abs_diff, max_block_height - last_block_v1) : 0;
-		if(is_inital) 
-		GULPS_GLOBALF_PRINT("\n{} Sync data returned a new top block candidate: {} -> {} [Your node is {} blocks ({} days {})]\nSYNCHRONIZATION started", context_str, m_core.get_current_blockchain_height(), 
-					hshd.current_height, abs_diff, ((abs_diff - diff_v2) / (24 * 60 * 60 / common_config::DIFFICULTY_TARGET)) + (diff_v2 / (24 * 60 * 60 / common_config::DIFFICULTY_TARGET)), 
+		if(is_inital)
+		GULPS_GLOBALF_PRINT("\n{} Sync data returned a new top block candidate: {} -> {} [Your node is {} blocks ({} days {})]\nSYNCHRONIZATION started", context_str, m_core.get_current_blockchain_height(),
+					hshd.current_height, abs_diff, ((abs_diff - diff_v2) / (24 * 60 * 60 / common_config::DIFFICULTY_TARGET)) + (diff_v2 / (24 * 60 * 60 / common_config::DIFFICULTY_TARGET)),
 					(0 <= diff ? std::string("behind") : std::string("ahead")));
 		else
-		GULPS_GLOBALF_PRINT("\n{} Sync data returned a new top block candidate: {} -> {} [Your node is {} blocks ({} days {})]\nSYNCHRONIZATION started", context_str, m_core.get_current_blockchain_height(), 
-					hshd.current_height, abs_diff, ((abs_diff - diff_v2) / (24 * 60 * 60 / common_config::DIFFICULTY_TARGET)) + (diff_v2 / (24 * 60 * 60 / common_config::DIFFICULTY_TARGET)), 
+		GULPS_GLOBALF_PRINT("\n{} Sync data returned a new top block candidate: {} -> {} [Your node is {} blocks ({} days {})]\nSYNCHRONIZATION started", context_str, m_core.get_current_blockchain_height(),
+					hshd.current_height, abs_diff, ((abs_diff - diff_v2) / (24 * 60 * 60 / common_config::DIFFICULTY_TARGET)) + (diff_v2 / (24 * 60 * 60 / common_config::DIFFICULTY_TARGET)),
 					(0 <= diff ? std::string("behind") : std::string("ahead")));
-					
+
 		if(hshd.current_height >= m_core.get_current_blockchain_height() + 5) // don't switch to unsafe mode just for a few blocks
 			m_core.safesyncmode(false);
 	}
@@ -703,7 +703,7 @@ int t_cryptonote_protocol_handler<t_core>::handle_request_fluffy_missing_tx(int 
 		{
 			GULPS_LOGF_ERROR("{} Failed to handle request NOTIFY_REQUEST_FLUFFY_MISSING_TX, request is asking for a tx whose index is out of bounds , tx index = {}, block tx count {}, block_height = {}, dropping connection",  context_str, tx_idx , b.tx_hashes.size()
 				, arg.current_blockchain_height);
-				
+
 
 			drop_connection(context, false, false);
 			return 1;
@@ -899,7 +899,7 @@ int t_cryptonote_protocol_handler<t_core>::handle_response_get_objects(int comma
 		{
 			GULPS_LOGF_ERROR("{} sent wrong NOTIFY_RESPONSE_GET_OBJECTS: block with id={}, tx_hashes.size()={} mismatch with block_complete_entry.m_txs.size()={}, dropping connection"
 													, context_str, epee::string_tools::pod_to_hex(get_blob_hash(block_entry.block))
-													, b.tx_hashes.size() , block_entry.txs.size()); 
+													, b.tx_hashes.size() , block_entry.txs.size());
 			drop_connection(context, false, false);
 			return 1;
 		}
@@ -926,7 +926,7 @@ int t_cryptonote_protocol_handler<t_core>::handle_response_get_objects(int comma
 	}
 
 	{
-		GULPS_OUTPUTF(gulps::OUT_LOG_0, gulps::LEVEL_DEBUG, GULPS_CAT_MAJOR, GULPS_CAT_MINOR, gulps::COLOR_YELLOW, "{} Got NEW BLOCKS inside of {}: size: {}, blocks: {} - {}", 
+		GULPS_OUTPUTF(gulps::OUT_LOG_0, gulps::LEVEL_DEBUG, GULPS_CAT_MAJOR, GULPS_CAT_MINOR, gulps::COLOR_YELLOW, "{} Got NEW BLOCKS inside of {}: size: {}, blocks: {} - {}",
 		 context_str, __FUNCTION__, arg.blocks.size(), start_height, (start_height + arg.blocks.size() - 1));
 
 		// add that new span to the block queue
@@ -1137,12 +1137,10 @@ int t_cryptonote_protocol_handler<t_core>::try_add_next_blocks(cryptonote_connec
 				if(m_core.get_current_blockchain_height() > previous_height)
 				{
 					const boost::posix_time::time_duration dt = boost::posix_time::microsec_clock::universal_time() - start;
-					std::string timing_message = "";
-					if(ELPP->vRegistry()->allowed(el::Level::Info, "sync-info"))
-						timing_message = std::string(" (") + std::to_string(dt.total_microseconds() / 1e6) + " sec, " + std::to_string((m_core.get_current_blockchain_height() - previous_height) * 1e6 / dt.total_microseconds()) + " blocks/sec), " + std::to_string(m_block_queue.get_data_size() / 1048576.f) + " MB queued";
-					if(ELPP->vRegistry()->allowed(el::Level::Debug, "sync-info"))
-						timing_message += std::string(": ") + m_block_queue.get_overview();
-					GULPS_GLOBALF_PRINT_CLR(gulps::COLOR_YELLOW, "{} Synced {}/{} {}", context_str, m_core.get_current_blockchain_height(), m_core.get_target_blockchain_height(), timing_message);
+					GULPS_GLOBALF_PRINT_CLR(gulps::COLOR_YELLOW, "{} Synced {}/{}", context_str, m_core.get_current_blockchain_height(), m_core.get_target_blockchain_height());
+					GULPS_CATF_INFO("global", "({}sec, {} blocks/sec), {} MB queued", std::to_string(dt.total_microseconds() / 1e6), std::to_string((m_core.get_current_blockchain_height() - previous_height) * 1e6 / dt.total_microseconds()),
+									     std::to_string(m_block_queue.get_data_size() / 1048576.f));
+					GULPS_CAT_LOG_L1("global","", m_block_queue.get_overview());
 				}
 			}
 		}

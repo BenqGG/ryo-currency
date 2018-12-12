@@ -234,7 +234,7 @@ bool connection<t_protocol_handler>::release()
 {
 	GULPS_TRY_ENTRY();
 	boost::shared_ptr<connection<t_protocol_handler>> back_connection_copy;
-	GULPS_LOG_L2(context, "[sock ", socket_.native_handle() , "] release");
+	GULPS_LOG_L2(print_connection_context_short(context), "[sock ", socket_.native_handle() , "] release");
 	CRITICAL_REGION_BEGIN(m_self_refs_lock);
 	GULPS_CHECK_AND_ASSERT_MES(m_self_refs.size(), false, "[sock " , socket_.native_handle() , "] m_self_refs empty at connection<t_protocol_handler>::release() call");
 	//erasing from container without additional copy can cause start deleting object, including m_self_refs
