@@ -31,7 +31,7 @@
 #include <boost/regex.hpp>
 
 #include "ringct/multiexp.h"
-#include "misc_log_ex.h"
+#include "common/gulps.hpp"
 using namespace epee;
 #include "common/command_line.h"
 #include "common/util.h"
@@ -72,8 +72,6 @@ int main(int argc, char **argv)
 	tools::on_startup();
 	set_process_affinity(1);
 	set_thread_high_priority();
-
-	mlog_configure(mlog_get_default_log_path("performance_tests.log"), true);
 
 	po::options_description desc_options("Command line options");
 	const command_line::arg_descriptor<std::string> arg_filter = {"filter", "Regular expression filter for which tests to run"};

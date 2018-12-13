@@ -668,6 +668,17 @@ public:
 	}
 };
 
+namespace debug
+{
+inline bool get_set_enable_assert(bool set = false, bool v = false)
+{
+	static bool e = true;
+	if(set)
+		e = v;
+	return e;
+}
+}
+
 #ifndef GULPS_CAT_MAJOR
 #define GULPS_CAT_MAJOR "default"
 #endif
@@ -781,7 +792,7 @@ public:
 #if(defined _MSC_VER)
 #define GULPS_LOCAL_ASSERT(expr)                       \
 	{                                            \
-		if(epee::debug::get_set_enable_assert()) \
+		if(debug::get_set_enable_assert()) \
 		{                                        \
 			_ASSERTE(expr);                      \
 		}                                        \

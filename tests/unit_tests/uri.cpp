@@ -28,7 +28,7 @@
 
 #include "wallet/wallet2.h"
 #include "gtest/gtest.h"
-#include "misc_log_ex.h"
+#include "common/gulps.hpp"
 
 #define TEST_ADDRESS "RYoTr1KP7tgJFQ4bTWto4MhM3qT4YA8gV3smuJyxucJgBDdCWehV4btgcyNb11MAUC7t9yPDUCwAoREVdyVNankWERkEddsUix3"
 // included payment id: <6f1aa052630b29fb>
@@ -40,7 +40,7 @@
 	std::vector<std::string> unknown_parameters;                                                                      \
 	tools::wallet2 w(cryptonote::TESTNET);                                                                            \
 	bool ret = w.parse_uri(uri, address, payment_id, amount, description, recipient_name, unknown_parameters, error); \
-	if(!ret) MERROR("parse_uri error: " << error);                                                                    \
+	if(!ret) std::cout << "parse_uri error: " << error << std::endl;                                                                    \
 	ASSERT_EQ(ret, expected);
 
 TEST(uri, empty_string)
