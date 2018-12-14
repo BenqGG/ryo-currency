@@ -211,7 +211,7 @@ bool construct_tx_with_tx_key(const account_keys &sender_account_keys, const std
 
 	if(bulletproof && destinations.size() > common_config::BULLETPROOF_MAX_OUTPUTS)
 	{
-		LOG_ERROR("Current bulletproof implementation supports up to 16 outputs (15 + change).");
+		GULPS_ERROR("Current bulletproof implementation supports up to 16 outputs (15 + change).");
 		return false;
 	}
 
@@ -371,7 +371,7 @@ bool construct_tx_with_tx_key(const account_keys &sender_account_keys, const std
 	}
 	GULPS_CHECK_AND_ASSERT_MES(additional_tx_public_keys.size() == additional_tx_keys.size(), false, "Internal error creating additional public keys");
 
-	LOG_PRINT_L2("tx pubkey: " << txkey_pub);
+	GULPS_LOG_L2("tx pubkey: ", txkey_pub);
 	if(need_additional_txkeys)
 	{
 		GULPS_LOG_L2("additional tx pubkeys: ");
@@ -387,16 +387,16 @@ bool construct_tx_with_tx_key(const account_keys &sender_account_keys, const std
 		{
 			if(payment_id->zero != 0)
 			{
-				LOG_ERROR("Internal error. Invalid payment id.");
+				GULPS_ERROR("Internal error. Invalid payment id.");
 				return false;
 			}
 
-			LOG_PRINT_L2("Encrypting payment id " << payment_id->payment_id);
+			GULPS_LOG_L2("Encrypting payment id ", payment_id->payment_id);
 
 			crypto::public_key view_key_pub = get_destination_view_key_pub(destinations, change_addr);
 			if(view_key_pub == null_pkey)
 			{
-				LOG_ERROR("Destinations have to have exactly one output to support encrypted payment ids");
+				GULPS_ERROR("Destinations have to have exactly one output to support encrypted payment ids");
 				return false;
 			}
 
@@ -405,17 +405,17 @@ bool construct_tx_with_tx_key(const account_keys &sender_account_keys, const std
 
 			if(!hwdev.encrypt_payment_id(pid.pid, view_key_pub, tx_key))
 			{
-				LOG_ERROR("Failed to encrypt payment id");
+				GULPS_ERROR("Failed to encrypt payment id");
 				return false;
 			}
 
 			if(!add_payment_id_to_tx_extra(tx.extra, &pid))
 			{
-				LOG_ERROR("Failed to add encrypted payment id to tx extra");
+				GULPS_ERROR("Failed to add encrypted payment id to tx extra");
 				return false;
 			}
 
-			LOG_PRINT_L1("Encrypted payment ID: " << pid.pid.payment_id);
+			GULPS_LOG_L1("Encrypted payment ID: ", pid.pid.payment_id);
 		}
 		else
 		{
@@ -431,7 +431,7 @@ bool construct_tx_with_tx_key(const account_keys &sender_account_keys, const std
 			crypto::public_key view_key_pub = get_destination_view_key_pub(destinations, change_addr);
 			if(view_key_pub == null_pkey)
 			{
-				LOG_ERROR("Destinations have to have exactly one output to support encrypted payment ids");
+				GULPS_ERROR("Destinations have to have exactly one output to support encrypted payment ids");
 				return false;
 			}
 
@@ -439,7 +439,7 @@ bool construct_tx_with_tx_key(const account_keys &sender_account_keys, const std
 			memcpy(&legacy_enc_pid, &payment_id->payment_id, sizeof(crypto::hash8));
 			if(!hwdev.encrypt_payment_id(legacy_enc_pid, view_key_pub, tx_key))
 			{
-				LOG_ERROR("Failed to encrypt payment id");
+				GULPS_ERROR("Failed to encrypt payment id");
 				return false;
 			}
 
@@ -452,7 +452,7 @@ bool construct_tx_with_tx_key(const account_keys &sender_account_keys, const std
 
 		if(!add_extra_nonce_to_tx_extra(tx.extra, extra_nonce))
 		{
-			LOG_ERROR("Failed to add extra_nonce");
+			GULPS_ERROR("Failed to add extra_nonce");
 			return false;
 		}
 	}
